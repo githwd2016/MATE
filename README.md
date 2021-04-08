@@ -1,7 +1,6 @@
 ## MATE: Multimodal Dialogue Systems via Capturing Context-aware Dependencies of Semantic Elements
-<img src="images/pytorch.jpeg" width="12%"> 
-<img align="right" src="images/ustc.jpeg" width="15%">
-<img align="right" src="images/huawei.jpeg" width="15%">
+<img align="right" src="images/ustc.jpeg" width="12%">
+<img align="right" src="images/huawei.jpeg" width="12%">
 
 This is the PyTorch implementation of the paper:
 **Multimodal Dialogue Systems via Capturing Context-aware Dependencies of Semantic Elements**. Weidong He, Zhi Li, Dongcai Lu, Enhong Chen, Tong Xu, Baoxing  Huai, Jing Nicholas Yuan. ***ACM MM 2020***. 

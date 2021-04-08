@@ -1,7 +1,7 @@
 ## MATE: Multimodal Dialogue Systems via Capturing Context-aware Dependencies of Semantic Elements
-<img src="images/pytorch.jpeg" width="10%"> 
-<img align="right" src="images/ustc.jpeg" width="8%">
-<img align="right" src="images/huawei.jpeg" width="18%">
+<img src="images/pytorch.jpeg" width="30%"> 
+<img src="images/ustc.jpeg" width="30%">
+<img src="images/huawei.jpeg" width="30%">
 
 This is the PyTorch implementation of the paper:
 **Multimodal Dialogue Systems via Capturing Context-aware Dependencies of Semantic Elements**. Weidong He, Zhi Li, Dongcai Lu, Enhong Chen, Tong Xu, Baoxing  Huai, Jing Nicholas Yuan. ***ACM MM 2020***. 
@@ -23,7 +23,7 @@ Recently, multimodal dialogue systems have engaged increasing attention in sever
 
 ## Model Architecture
 <p align="center">
-<img src="images/model.png" width="75%" />
+<img src="images/model.png" width="80%" />
 </p>
 The architecture of the proposed MATE model, which includes two main components:
 
@@ -39,7 +39,7 @@ Check the packages needed or simply run the command.
 
 ## Data
 <p align="center">
-<img src="images/dataset.png" width="50%" />
+<img src="images/dataset.png" width="70%" />
 </p>
 
 Download the MMD dataset and process with the following command.

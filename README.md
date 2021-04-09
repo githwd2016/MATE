@@ -108,26 +108,24 @@ We provide an example config file [mate_v1.json](config/mate_v1.json), which con
 training: the parameters in this domain are related to the train process.
 1. "seed": random seed
 2. "lr": learning rate
-3. "lr_decay": 0,
-4. "max_gradient_norm": 0.1,
-5. "num_epochs": 50,
-6. "log_batch": 100,
-7. "evaluate_epoch": 1,
-8. "patience": 3,
-9. "label_smoothing": 0
+3. "lr_decay": weight decay (L2 penalty)
+4. "max_gradient_norm": max norm of the gradients for clip
+5. "num_epochs": total epochs
+6. "log_batch": logging interval (num of batches)
+7. "evaluate_epoch": evaluation interval (num of epochs)
+8. "patience": patience for early stop
+9. "label_smoothing": if use label smoothing
 
 data: the parameters in this domain are about data processing.
-1.
-2.
-"annoy_file": "/home/hwd/dataset/mmd/dataset/image_annoy_index/annoy.ann",
-    "annoy_pkl": "/home/hwd/dataset/mmd/dataset/image_annoy_index/ImageUrlToIndex.pkl",
-    "source_path": "data/processed",
-    "work_path": "data/work_path",
-    "context_text_cutoff": 4,
-    "text_length": 30,
-    "image_length": 12,
-    "num_pos_images": 1,
-    "num_neg_images": 4
+1. "annoy_file": file path for "annoy.ann"
+2. "annoy_pkl": file path for "ImageUrlToIndex.pkl" 
+3. "source_path": data source directory
+4. "work_path": work directory
+5. "context_text_cutoff": min word frequency
+6. "text_length": max text length
+7. "image_length": max image num
+8. "num_pos_images": max positive images num
+9. "num_neg_images": max negative images num
 
 model: the parameters in this domain are related to the model structure and do not need to be adjusted in most cases.
 

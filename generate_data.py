@@ -31,6 +31,8 @@ def main(args):
     for version in versions:
         for split in splits:
             path = os.path.join(args.input_dir, version, split)
+            if not os.path.exists(path):
+                os.makedirs(path)
             dialogs = []
             for file in tqdm(os.listdir(path), desc='Dump {} {}'.format(version, split)):
                 with open(os.path.join(path, file), 'r') as f:

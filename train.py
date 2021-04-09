@@ -2,14 +2,13 @@
 """
 @Author: winton
 @File: training.py
-@Time: 2019/8/6 9:22 AM
+@Time: 2021/4/9 9:22 AM
 @Description:
 """
 import argparse
 import json
 import logging
 import os
-import pickle
 
 import torch
 from torch import nn, optim
@@ -18,8 +17,8 @@ from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 import numpy as np
 
-from model.kmt.data import DataSource
-from model.kmt.model import Model
+from widget.data import DataSource
+from widget.model import Model
 
 
 def cal_performance(pred, gold, padding_id, smoothing=False):
@@ -99,31 +98,31 @@ def main(args):
                               num_workers=3)
     vocab_size = len(train_dataset.vocab)
     logger.info(f"Total epoch={len(train_dataset)//config['training']['batch_size']}")
-    # Define model
+    # Define widget
     model = Model(task=args.task,
                   vocab_size=vocab_size,
                   max_text_len=config['data']['text_length'],
-                  image_size=config['model']['image_size'],
-                  embedding_size=config['model']['word_embedding_size'],
-                  text_n_layers=config['model']['text_n_layers'],
-                  text_n_head=config['model']['text_n_head'],
-                  text_d_k=config['model']['text_d_k'],
-                  text_d_v=config['model']['text_d_v'],
-                  text_d_model=config['model']['text_d_model'],
-                  text_d_inner=config['model']['text_d_inner'],
-                  co_n_layers=config['model']['co_n_layers'],
-                  co_n_head=config['model']['co_n_head'],
-                  co_d_k=config['model']['co_d_k'],
-                  co_d_v=config['model']['co_d_v'],
-                  co_d_model=config['model']['co_d_model'],
-                  co_d_inner=config['model']['co_d_inner'],
-                  de_n_layers=config['model']['de_n_layers'],
-                  de_n_head=config['model']['de_n_head'],
-                  de_d_k=config['model']['de_d_k'],
-                  de_d_v=config['model']['de_d_v'],
-                  de_d_model=config['model']['de_d_model'],
-                  de_d_inner=config['model']['de_d_inner'],
-                  dropout_rate=config['model']['dropout_rate'],
+                  image_size=config['widget']['image_size'],
+                  embedding_size=config['widget']['word_embedding_size'],
+                  text_n_layers=config['widget']['text_n_layers'],
+                  text_n_head=config['widget']['text_n_head'],
+                  text_d_k=config['widget']['text_d_k'],
+                  text_d_v=config['widget']['text_d_v'],
+                  text_d_model=config['widget']['text_d_model'],
+                  text_d_inner=config['widget']['text_d_inner'],
+                  co_n_layers=config['widget']['co_n_layers'],
+                  co_n_head=config['widget']['co_n_head'],
+                  co_d_k=config['widget']['co_d_k'],
+                  co_d_v=config['widget']['co_d_v'],
+                  co_d_model=config['widget']['co_d_model'],
+                  co_d_inner=config['widget']['co_d_inner'],
+                  de_n_layers=config['widget']['de_n_layers'],
+                  de_n_head=config['widget']['de_n_head'],
+                  de_d_k=config['widget']['de_d_k'],
+                  de_d_v=config['widget']['de_d_v'],
+                  de_d_model=config['widget']['de_d_model'],
+                  de_d_inner=config['widget']['de_d_inner'],
+                  dropout_rate=config['widget']['dropout_rate'],
                   padding_id=config['data']['pad_id'],
                   tgt_emb_prj_weight_sharing=True)
     model.to(device)
@@ -141,9 +140,9 @@ def main(args):
                                                verbose=True)
     # optimizer = ScheduledOptim(
     #     optim.Adam(
-    #         filter(lambda x: x.requires_grad, model.parameters()),
+    #         filter(lambda x: x.requires_grad, widget.parameters()),
     #         betas=(0.9, 0.98), eps=1e-09),
-    #     config['model']['text_d_model'], config['training']['warmup_steps'])
+    #     config['widget']['text_d_model'], config['training']['warmup_steps'])
     # Train
     total_batch = 0
     min_val_loss = None
@@ -223,13 +222,13 @@ def main(args):
             else:
                 pass
             model_p.train()
-            # Save model each epoch
+            # Save widget each epoch
             save_dict = {
                 'task': args.task,
                 'epoch': epoch,
                 'iteration': total_batch,
                 'valid_loss': valid_loss,
-                'model': model.state_dict(),
+                'widget': model.state_dict(),
                 'optimizer': optimizer.state_dict()
             }
             torch.save(save_dict,
@@ -237,7 +236,7 @@ def main(args):
             if min_val_loss is None or valid_loss < min_val_loss:
                 min_val_loss = valid_loss
                 bad_loss_cnt = 0
-                # Save the best model
+                # Save the best widget
                 torch.save(save_dict,
                            os.path.join(args.model_path, f'best_{args.task}_model.pth'))
             else:
@@ -256,8 +255,8 @@ if __name__ == '__main__':
     # path
     _parser.add_argument('--config_file_path', help='path to json config', required=True)
     _parser.add_argument('--model_path', type=str, default='./models/', help='path for saving trained models')
-    # model
-    _parser.add_argument('--task', type=str, default='text', help='task type.')
+    # widget
+    _parser.add_argument('--task', type=str, default='text', help='task type(only support text now).')
     _parser.add_argument('--version', type=int, choices=[1, 2], help='dataset version.', required=True)
     _parser.add_argument('--context_size', type=int, help='context size.', required=True)
     _parser.add_argument('--batch_size', type=int, help='batch size.', required=True)

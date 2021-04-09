@@ -16,8 +16,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from model.baseline.transformer.data import DataSource
-from model.baseline.transformer.model import Model
+from widget.baseline.transformer.data import DataSource
+from widget.baseline.transformer.model import Model
 
 
 def index2word(seq, vocab, end_id):
@@ -62,35 +62,35 @@ def main(args):
                              num_workers=4)
     vocab_size = len(vocab)
     i2w = {v: k for (k, v) in vocab.items()}
-    # Define model
+    # Define widget
     model = Model(task=task,
                   vocab_size=vocab_size,
                   max_text_len=config['data']['text_length'],
-                  image_size=config['model']['image_size'],
-                  embedding_size=config['model']['word_embedding_size'],
-                  text_n_layers=config['model']['text_n_layers'],
-                  text_n_head=config['model']['text_n_head'],
-                  text_d_k=config['model']['text_d_k'],
-                  text_d_v=config['model']['text_d_v'],
-                  text_d_model=config['model']['text_d_model'],
-                  text_d_inner=config['model']['text_d_inner'],
-                  co_n_layers=config['model']['co_n_layers'],
-                  co_n_head=config['model']['co_n_head'],
-                  co_d_k=config['model']['co_d_k'],
-                  co_d_v=config['model']['co_d_v'],
-                  co_d_model=config['model']['co_d_model'],
-                  co_d_inner=config['model']['co_d_inner'],
-                  de_n_layers=config['model']['de_n_layers'],
-                  de_n_head=config['model']['de_n_head'],
-                  de_d_k=config['model']['de_d_k'],
-                  de_d_v=config['model']['de_d_v'],
-                  de_d_model=config['model']['de_d_model'],
-                  de_d_inner=config['model']['de_d_inner'],
-                  dropout_rate=config['model']['dropout_rate'],
+                  image_size=config['widget']['image_size'],
+                  embedding_size=config['widget']['word_embedding_size'],
+                  text_n_layers=config['widget']['text_n_layers'],
+                  text_n_head=config['widget']['text_n_head'],
+                  text_d_k=config['widget']['text_d_k'],
+                  text_d_v=config['widget']['text_d_v'],
+                  text_d_model=config['widget']['text_d_model'],
+                  text_d_inner=config['widget']['text_d_inner'],
+                  co_n_layers=config['widget']['co_n_layers'],
+                  co_n_head=config['widget']['co_n_head'],
+                  co_d_k=config['widget']['co_d_k'],
+                  co_d_v=config['widget']['co_d_v'],
+                  co_d_model=config['widget']['co_d_model'],
+                  co_d_inner=config['widget']['co_d_inner'],
+                  de_n_layers=config['widget']['de_n_layers'],
+                  de_n_head=config['widget']['de_n_head'],
+                  de_d_k=config['widget']['de_d_k'],
+                  de_d_v=config['widget']['de_d_v'],
+                  de_d_model=config['widget']['de_d_model'],
+                  de_d_inner=config['widget']['de_d_inner'],
+                  dropout_rate=config['widget']['dropout_rate'],
                   padding_id=config['data']['pad_id'],
                   tgt_emb_prj_weight_sharing=True)
-    model.load_state_dict(save_dict['model'])
-    # model = nn.DataParallel(model)
+    model.load_state_dict(save_dict['widget'])
+    # widget = nn.DataParallel(widget)
     model.to(device)
     model.eval()
     logger.info(model)

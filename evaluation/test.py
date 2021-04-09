@@ -37,7 +37,7 @@ metrics_dict = compute_individual_metrics([' '.join(ref) for ref in reference], 
 sentence_bleu = bleu_score.sentence_bleu(reference, candidate)
 print(metrics_dict)
 print(sentence_bleu)
-hypothesis_path = '/home/hwd/project/mmkbds/model/baseline/cmmd/result/cmmd_v4/pred_10.txt'
+hypothesis_path = '/home/hwd/project/mmkbds/widget/baseline/cmmd/result/cmmd_v4/pred_10.txt'
 references_path = '/home/hwd/dataset/cmmd/data/dataset/v2/dialogue_data/context_2_20/test_target_text.txt'
 metrics_dict = compute_metrics(hypothesis=hypothesis_path, references=[references_path])
 with open(hypothesis_path, 'r') as f:

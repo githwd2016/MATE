@@ -3,7 +3,7 @@
 <img align="right" src="images/huawei.jpeg" width="12%">
 
 This is the PyTorch implementation of the paper:
-**Multimodal Dialogue Systems via Capturing Context-aware Dependencies of Semantic Elements**. Weidong He, Zhi Li, Dongcai Lu, Enhong Chen, Tong Xu, Baoxing  Huai, Jing Nicholas Yuan. ***ACM MM 2020***. 
+**Multimodal Dialogue Systems via Capturing Context-aware Dependencies of Semantic Elements**. Weidong He, Zhi Li, Dongcai Lu, Enhong Chen, Tong Xu, Baoxing  Huai, Nicholas Jing Yuan. ***ACM MM 2020***. 
 [[PDF]](https://dl.acm.org/doi/abs/10.1145/3394171.3413679?casa_token=NAfGkcF9aD4AAAAA:RycuI3YzktrxbcAiq10TPiJ3VseRsO_b7VhvTZM_5XZQX3k9Kqrqv8x1_BM3fKBJvC9XWK_tXvY)
 
 If you use any source codes or datasets included in this toolkit in your work, please cite the following paper. The bibtex is listed below:
@@ -31,33 +31,106 @@ The architecture of the proposed MATE model, which includes two main components:
 **Knowledge-aware Two-Stage Decoder**: It is a variant of a transformer decoder for generating better responses. The first-stage decoder focuses on the multimodal conversation context from the encoder, while the second-stage decoder takes domain knowledge and results from the first decoder to further refine the responses.
 
 ## Dependency
-Check the packages needed or simply run the command.
+Check the packages needed or simply run the command, with python 3.7.
 ```console
 ❱❱❱ pip install -r requirements.txt
 ```
 
-## Data
+## Preparing Data
 <p align="center">
 <img src="images/dataset.png" width="70%" />
 </p>
 
-Download the MMD dataset and process with the following command.
+1. Download the [MMD dataset](https://amritasaha1812.github.io/MMD/download/) and unzip it. Note that we only use the **dataset.zip** and **image_annoy_index.zip**. The data directory is like this.
 ```console
-❱❱❱ python3 create_data.py
+data
+├── annoy.ann
+├── ImageUrlToIndex.pkl
+├── FileNameMapToIndex.pkl
+├── v1
+│   ├── train
+│   │   ├── *.json
+│   │   └── ...
+│   ├── valid
+│   └── test
+└── v2
+    ├── train
+    ├── valid
+    └── test
 ```
-The final 
+2. Process with the following command or just download processed data from [Google Driver]()
+```console
+❱❱❱ python3 generate_data.py --input_dir data/raw --out_dir data/processed
+```
+The final data directory is like this.
+```console
+data
+├── raw
+│   ├── annoy.ann
+│   ├── ImageUrlToIndex.pkl
+│   ├── FileNameMapToIndex.pkl
+│   ├── v1
+│   │   ├── train
+│   │   │   ├── *.json
+│   │   │   └── ...
+│   │   ├── valid
+│   │   └── test
+│   └── v2
+│       ├── train
+│       ├── valid
+│       └── test
+└── processed
+    ├── v1
+    │   ├── train.pkl
+    │   ├── valid.pkl
+    │   └── test.pkl
+    └── v2
+        ├── train.pkl
+        ├── valid.pkl
+        └── test.pkl 
+```
 
 ## Train and test
 Training
 ```console
-❱❱❱ python3 myTrain.py -dec=TRADE -bsz=32 -dr=0.2 -lr=0.001 -le=1
+❱❱❱ python3 train.py
 ```
+Note that at the first time it will generate train data file to "work_path", so maybe slow.
+
 Testing
 ```console
-❱❱❱ python3 myTest.py -path=${save_path}
+❱❱❱ python3 translate.py
 ```
-* -bsz: batch size
-* -dr: drop out ratio
-* -lr: learning rate
-* -le: loading pretrained embeddings
-* -path: model saved path
+
+## Explanation for config file
+We provide an example config file [mate_v1.json](config/mate_v1.json), which consists of three fields: "training", "data" and "model". The meaning of parameters is as follows:
+
+training: the parameters in this domain are related to the train process.
+1. "seed": random seed
+2. "lr": learning rate
+3. "lr_decay": 0,
+4. "max_gradient_norm": 0.1,
+5. "num_epochs": 50,
+6. "log_batch": 100,
+7. "evaluate_epoch": 1,
+8. "patience": 3,
+9. "label_smoothing": 0
+
+data: the parameters in this domain are about data processing.
+1.
+2.
+"annoy_file": "/home/hwd/dataset/mmd/dataset/image_annoy_index/annoy.ann",
+    "annoy_pkl": "/home/hwd/dataset/mmd/dataset/image_annoy_index/ImageUrlToIndex.pkl",
+    "source_path": "data/processed",
+    "work_path": "data/work_path",
+    "context_text_cutoff": 4,
+    "text_length": 30,
+    "image_length": 12,
+    "num_pos_images": 1,
+    "num_neg_images": 4
+
+model: the parameters in this domain are related to the model structure and do not need to be adjusted in most cases.
+
+
+
+

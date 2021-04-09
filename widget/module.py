@@ -2,7 +2,7 @@
 """
 @Author: winton
 @File: module.py
-@Time: 2019/8/21 4:21 PM
+@Time: 2021/4/9 4:21 PM
 @Description:
 """
 import torch
@@ -64,7 +64,7 @@ class Emb(nn.Module):
 
 
 class Encoder(nn.Module):
-    """ A encoder model with attention mechanism. """
+    """ A encoder widget with attention mechanism. """
 
     def __init__(
             self,
@@ -92,7 +92,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    """ A decoder model with self attention mechanism. """
+    """ A decoder widget with self attention mechanism. """
 
     def __init__(
             self,

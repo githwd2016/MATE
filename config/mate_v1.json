@@ -13,8 +13,8 @@
   "data": {
     "annoy_file": "/home/hwd/dataset/mmd/dataset/image_annoy_index/annoy.ann",
     "annoy_pkl": "/home/hwd/dataset/mmd/dataset/image_annoy_index/ImageUrlToIndex.pkl",
-    "source_path": "dataset/mmd/data",
-    "work_path": "dataset/mine",
+    "source_path": "data/processed",
+    "work_path": "data/work_path",
     "context_text_cutoff": 4,
     "text_length": 30,
     "image_length": 12,

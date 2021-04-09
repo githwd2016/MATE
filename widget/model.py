@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-  
 """
 @Author: winton
-@File: model.py
+@File: widget.py
 @Time: 2019/8/6 9:13 AM
 @Description:
 """
@@ -9,9 +9,8 @@ import pickle
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 
-from model.baseline.transformer.module import Emb, Encoder, Decoder
+from .module import Emb, Encoder, Decoder
 
 
 def get_non_pad_mask(seq, padding_id):
@@ -129,7 +128,7 @@ class Model(nn.Module):
 if __name__ == '__main__':
     pass
     # vocab = pickle.load(open('dataset/transformer/v2/c2/vocab.pkl', 'rb'))
-    # model = Model(task='text',
+    # widget = Model(task='text',
     #               vocab_size=len(vocab),
     #               max_text_len=20,
     #               image_size=4096,
@@ -159,6 +158,6 @@ if __name__ == '__main__':
     #                             [1, 5, 2, 0, 0, 0]])
     # query_pos = torch.tensor([[1, 2, 3, 4, 0, 0],
     #                           [1, 2, 3, 0, 0, 0]])
-    # model(text_input, text_pos, text_turn, text_speaker,
+    # widget(text_input, text_pos, text_turn, text_speaker,
     #       image_input, image_seq, image_turn, image_speaker,
     #       query_input, query_pos)

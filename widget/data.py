@@ -2,7 +2,7 @@
 """
 @Author: winton
 @File: data.py
-@Time: 2019/7/29 3:59 PM
+@Time: 2021/4/9 3:59 PM
 @Description:
 """
 import json
@@ -18,17 +18,12 @@ from torch.utils.data import Dataset
 from annoy import AnnoyIndex
 from tqdm import tqdm
 
+from widget.utils import save_to_pkl
+
 PAD_ID = 0
 UNK_ID = 1
 START_ID = 2
 END_ID = 3
-
-
-def save_to_pkl(obj, pkl_file):
-    # save to pkl_file
-    print('save to {}...'.format(pkl_file))
-    with open(pkl_file, 'wb') as f:
-        pkl.dump(obj, f)
 
 
 def pad_text(vocab, length, text):
@@ -70,10 +65,8 @@ class DataSource(Dataset):
         self.mode = mode
         self.context_size = context_size
         self.dialogs = None
-        self.source_file = os.path.join(self.config['data']['source_path'],
-                                        f'v{version}', f'{mode}.pkl')
-        work_path = os.path.join(self.config['data']['work_path'], f'v{version}',
-                                 f"c{context_size}")
+        self.source_file = os.path.join(self.config['data']['source_path'], f'v{version}', f'{mode}.pkl')
+        work_path = os.path.join(self.config['data']['work_path'], f'v{version}_c{context_size}')
         if not os.path.exists(work_path):
             os.makedirs(work_path)
         item_file = os.path.join(work_path, f'{task}_{mode}_item.pkl')
@@ -88,7 +81,7 @@ class DataSource(Dataset):
         self.vocab = self.create_or_load_vocab()
         if 'annoy_file' in self.config['data']:
             # use pre-train VGG image vector
-            self.annoy = AnnoyIndex(self.config['model']['image_size'], metric='euclidean')
+            self.annoy = AnnoyIndex(self.config['widget']['image_size'], metric='euclidean')
             self.annoy.load(self.config['data']['annoy_file'])
             self.annoy_index = pkl.load(open(self.config['data']['annoy_pkl'], 'rb'))
         if not isfile(item_file):
@@ -196,7 +189,7 @@ class DataSource(Dataset):
         for turn, (img, img_length, speaker) in enumerate(zip(imgs, img_lengths, speakers)):
             image_input.extend(self.get_imgs(img))
             image_pos.extend([self.vocab[x] for x in self.image_pos[:img_length]] +
-                              [0] * (self.config['data']['image_length'] - img_length))
+                             [0] * (self.config['data']['image_length'] - img_length))
             image_turn.extend([self.vocab[f'#{turn}']] * img_length +
                               [0] * (self.config['data']['image_length'] - img_length))
             image_speaker.extend([self.vocab[speaker]] * img_length +
@@ -204,7 +197,7 @@ class DataSource(Dataset):
         query_input, query_len = item[1]
         query_pos = list(range(1, query_len + 1)) + [0] * (self.config['data']['text_length'] - query_len)
         return np.array(text_input), np.array(text_pos), np.array(text_turn), np.array(text_speaker), \
-            np.array(image_input, dtype=np.float32), np.array(image_pos), np.array(image_turn), np.array(
+               np.array(image_input, dtype=np.float32), np.array(image_pos), np.array(image_turn), np.array(
             image_speaker), np.array(query_input), np.array(query_pos)
 
     def __len__(self):
@@ -223,7 +216,7 @@ class DataSource(Dataset):
             try:
                 vector = self.annoy.get_item_vector(self.annoy_index[url])
             except:
-                vector = [0.] * self.config['model']['image_size']
+                vector = [0.] * self.config['widget']['image_size']
             ret.append(vector)
         return ret
 

@@ -63,7 +63,7 @@ def main(args):
         os.makedirs(args.model_path)
     # Load config
     config = json.load(open(args.config_file_path, 'r'))
-    if config['train']['label_smoothing'] == 1:
+    if config['training']['label_smoothing'] == 1:
         label_smoothing = True
     else:
         label_smoothing = False

@@ -11,8 +11,8 @@
     "label_smoothing": 0
   },
   "data": {
-    "annoy_file": "/home/hwd/dataset/mmd/dataset/image_annoy_index/annoy.ann",
-    "annoy_pkl": "/home/hwd/dataset/mmd/dataset/image_annoy_index/ImageUrlToIndex.pkl",
+    "annoy_file": "data/raw/annoy.ann",
+    "annoy_pkl": "data/raw/ImageUrlToIndex.pkl",
     "source_path": "data/processed",
     "work_path": "data/work_path",
     "context_text_cutoff": 4,

@@ -133,7 +133,7 @@ if __name__ == '__main__':
     _parser.add_argument('-g', '--gpu', default='0', help='choose which GPU to use')
     # path
     _parser.add_argument('--config_file_path', help='path to json config', required=True)
-    _parser.add_argument('--model_path', type=str, default='./models/', help='path for saving trained models')
+    _parser.add_argument('--model_path', type=str, default='./models/', help='path for trained models')
     _parser.add_argument('--checkpoint_file', help='checkpoint file', required=True)
     _parser.add_argument('--out_file', type=str, help='path for saving result', required=True)
     _args = _parser.parse_args()

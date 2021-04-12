@@ -31,8 +31,6 @@ def main(args):
     for version in versions:
         for split in splits:
             path = os.path.join(args.input_dir, version, split)
-            if not os.path.exists(path):
-                os.makedirs(path)
             dialogs = []
             for file in tqdm(os.listdir(path), desc='Dump {} {}'.format(version, split)):
                 with open(os.path.join(path, file), 'r') as f:
@@ -61,7 +59,10 @@ def main(args):
                             false_images = []
                         dialog.append((speaker, norm_sentence(text), images, false_images, utter_type))
                     dialogs.append(dialog)
-            out_file = os.path.join(args.out_dir, version, f'{split}.pkl')
+            out_path = os.path.join(args.out_dir, version)
+            if not os.path.exists(out_path):
+                os.makedirs(out_path)
+            out_file = os.path.join(out_path, f'{split}.pkl')
             save_to_pkl(dialogs, out_file)
 
 

@@ -93,13 +93,13 @@ data
 ## Train and test
 Training
 ```console
-❱❱❱ python3 train.py
+❱❱❱ python3 train.py -g 0 --config_file_path config/mate_v1.json --model_path work_path/ --task text --version 1 --context_size 2 --batch_size 32
 ```
-Note that at the first time it will generate train data file to "work_path", so maybe slow.
+Note that at the first time it will generate train data file to config\["work_path"\], so maybe slow.
 
 Testing
 ```console
-❱❱❱ python3 translate.py
+❱❱❱ python3 translate.py -g 0 --config_file_path config/mate_v1.json --model_path work_path/ --checkpoint_file --out_file
 ```
 
 ## Explanation for config file

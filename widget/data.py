@@ -77,11 +77,11 @@ class DataSource(Dataset):
             print('reading dialog pkl...')
             self.dialogs = pkl.load(open(self.source_file, 'rb'))
         self.image_pos = ['1st', '2nd', '3rd', '4th', '5th', '6th',
-                          '7th', '8th', '9th', '10th', '11th', '12th']
+                          '7th', '8th', '9th', '10th', '11th', '12th'][:self.config['data']['image_length']]
         self.vocab = self.create_or_load_vocab()
         if 'annoy_file' in self.config['data']:
             # use pre-train VGG image vector
-            self.annoy = AnnoyIndex(self.config['widget']['image_size'], metric='euclidean')
+            self.annoy = AnnoyIndex(self.config['model']['image_size'], metric='euclidean')
             self.annoy.load(self.config['data']['annoy_file'])
             self.annoy_index = pkl.load(open(self.config['data']['annoy_pkl'], 'rb'))
         if not isfile(item_file):
@@ -140,7 +140,7 @@ class DataSource(Dataset):
         gt_texts = []
         dialog_types = []
         for dialog in self.dialogs:
-            history = [(empty_text, 1, [], 0, '<pad>', '<pad>')] * self.context_size
+            history = [(empty_text, 1, [''] * self.config['data']['image_length'], 0, '<pad>', '<pad>')] * self.context_size
             for utter in dialog:
                 # (speaker, text, images, false_images, utter_type)
                 text, text_length = pad_text(self.vocab, self.config['data']['text_length'], utter[1])
@@ -216,41 +216,6 @@ class DataSource(Dataset):
             try:
                 vector = self.annoy.get_item_vector(self.annoy_index[url])
             except:
-                vector = [0.] * self.config['widget']['image_size']
+                vector = [0.] * self.config['model']['image_size']
             ret.append(vector)
         return ret
-
-
-if __name__ == '__main__':
-    # vocab = pkl.load(open('dataset/mine/v1/c2/vocab.pkl', 'rb'))
-    # print(vocab['1st'])
-    # ds = DataSource('config/mine_v1.json', 'text', 'train', 1, 2)
-    # text_input, text_pos, text_turn, text_speaker, image_input, image_pos, \
-    # image_turn, image_speaker, query_input, query_pos = ds[4]
-    # print(text_input)
-    # print(text_pos)
-    # print(text_turn)
-    # print(text_speaker)
-    # print(image_input)
-    # print(image_pos)
-    # print(image_turn)
-    # print(image_speaker)
-    # print(query_input)
-    # print(query_pos)
-    # dl = DataLoader(ds, batch_size=16)
-    # for train_batch in dl:
-    #     text_input, text_pos, text_turn, text_speaker, \
-    #     image_input, image_pos, image_turn, image_speaker, \
-    #     query_input, query_pos = train_batch
-    #     print(text_input.shape)
-    #     print(text_pos.shape)
-    #     print(text_turn.shape)
-    #     print(text_speaker.shape)
-    #     print(image_input.shape)
-    #     print(image_pos.shape)
-    #     print(image_turn.shape)
-    #     print(image_speaker.shape)
-    #     print(query_input.shape)
-    #     print(query_pos.shape)
-    #     break
-    pass

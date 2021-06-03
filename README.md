@@ -33,7 +33,7 @@ The architecture of the proposed MATE model, which includes two main components:
 ## Dependency
 Check the packages needed or simply run the command, with python 3.7.
 ```console
-❱❱❱ pip install -r requirements.txt
+❱❱❱ pip install -r requirement.txt
 ```
 
 ## Preparing Data
@@ -58,7 +58,7 @@ data
     ├── valid
     └── test
 ```
-2. Process with the following command or just download processed data from [Google Driver]()
+2. Process with the following command or just download processed data from [Google Driver](https://drive.google.com/drive/folders/1h-caRW06n7oxD1ARKMXm1CLyY14rRhHq?usp=sharing)
 ```console
 ❱❱❱ python3 generate_data.py --input_dir data/raw --out_dir data/processed
 ```

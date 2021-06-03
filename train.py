@@ -9,6 +9,7 @@ import argparse
 import json
 import logging
 import os
+import time
 
 import torch
 from torch import nn, optim
@@ -17,7 +18,7 @@ from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 import numpy as np
 
-from widget.data import DataSource
+from widget.data import DataSource, PAD_ID
 from widget.model import Model
 
 
@@ -97,7 +98,7 @@ def main(args):
                               shuffle=False,
                               num_workers=3)
     vocab_size = len(train_dataset.vocab)
-    logger.info(f"Total epoch={len(train_dataset)//config['training']['batch_size']}")
+    logger.info(f"Total batches={len(train_dataset) // args.batch_size}")
     # Define widget
     model = Model(task=args.task,
                   vocab_size=vocab_size,
@@ -123,13 +124,13 @@ def main(args):
                   de_d_model=config['model']['de_d_model'],
                   de_d_inner=config['model']['de_d_inner'],
                   dropout_rate=config['model']['dropout_rate'],
-                  padding_id=config['data']['pad_id'],
+                  padding_id=PAD_ID,
                   tgt_emb_prj_weight_sharing=True)
     model.to(device)
-    model_p = nn.DataParallel(model)
-    logger.info(model_p)
+    # model = nn.DataParallel(model)
+    # logger.info(model)
     # Define optimizer
-    optimizer = optim.Adam(model_p.parameters(),
+    optimizer = optim.Adam(model.parameters(),
                            lr=config['training']['lr'],
                            weight_decay=config['training']['lr_decay'])
     # Define learning rate scheduler
@@ -152,7 +153,7 @@ def main(args):
         valid_loss = 0
         n_word_total = 0
         n_word_correct = 0
-        scheduler.step(valid_loss, epoch=epoch)
+        scheduler.step(valid_loss)
         for train_batch in train_loader:
             total_batch += 1
             if args.task == 'text':
@@ -161,21 +162,21 @@ def main(args):
                 query_input, query_pos = map(lambda x: x.to(device), train_batch)
                 gold = query_input[:, 1:]
                 optimizer.zero_grad()
-                dec_output_prob = model_p((text_input, text_pos, text_turn, text_speaker,
-                                           image_input, image_pos, image_turn, image_speaker),
-                                          (query_input[:, :-1], query_pos[:, :-1]))
-                loss, n_correct = cal_performance(dec_output_prob, gold, config['data']['pad_id'],
+                dec_output_prob = model((text_input, text_pos, text_turn, text_speaker,
+                                         image_input, image_pos, image_turn, image_speaker),
+                                        (query_input[:, :-1], query_pos[:, :-1]))
+                loss, n_correct = cal_performance(dec_output_prob, gold, PAD_ID,
                                                   smoothing=label_smoothing)
                 batch_loss = loss.item()
                 total_loss += batch_loss
-                non_pad_mask = gold.ne(config['data']['pad_id'])
+                non_pad_mask = gold.ne(PAD_ID)
                 n_word = non_pad_mask.sum().item()
                 n_word_total += n_word
                 n_word_correct += n_correct
                 batch_loss /= n_word
                 batch_acc = n_correct / n_word
                 if total_batch % config['training']['log_batch'] == 0 or total_batch < config['training']['log_batch']:
-                    logger.debug(f'Epoch [{epoch + 1}], Batch [{total_batch}], '
+                    logger.info(f'Epoch [{epoch + 1}], Batch [{total_batch}], '
                                  f'Loss: {batch_loss:.6}, Perplexity: {np.exp(batch_loss):.5f}, '
                                  f'Accuracy: {100 * batch_acc:.3f} %')
             else:
@@ -184,7 +185,7 @@ def main(args):
             optimizer.step()
             # optimizer.step_and_update_lr()
             # Gradient clipping to avoid exploding gradients
-            nn.utils.clip_grad_norm_(model_p.parameters(), config['training']['max_gradient_norm'])
+            nn.utils.clip_grad_norm_(model.parameters(), config['training']['max_gradient_norm'])
         if args.task == 'text':
             train_loss = total_loss / n_word_total
             train_accu = n_word_correct / n_word_total
@@ -196,7 +197,7 @@ def main(args):
         n_word_total = 0
         n_word_correct = 0
         if epoch % config['training']['evaluate_epoch'] == 0:
-            model_p.eval()
+            model.eval()
             if args.task == 'text':
                 for valid_batch in valid_loader:
                     text_input, text_pos, text_turn, text_speaker, \
@@ -204,13 +205,13 @@ def main(args):
                     query_input, query_pos = map(lambda x: x.to(device), valid_batch)
                     gold = query_input[:, 1:]
                     optimizer.zero_grad()
-                    dec_output_prob = model_p((text_input, text_pos, text_turn, text_speaker,
-                                               image_input, image_pos, image_turn, image_speaker),
-                                              (query_input[:, :-1], query_pos[:, :-1]))
-                    loss_val, n_correct = cal_performance(dec_output_prob, gold, config['data']['pad_id'],
+                    dec_output_prob = model((text_input, text_pos, text_turn, text_speaker,
+                                             image_input, image_pos, image_turn, image_speaker),
+                                            (query_input[:, :-1], query_pos[:, :-1]))
+                    loss_val, n_correct = cal_performance(dec_output_prob, gold, PAD_ID,
                                                           smoothing=label_smoothing)
                     total_loss += loss_val.item()
-                    non_pad_mask = gold.ne(config['data']['pad_id'])
+                    non_pad_mask = gold.ne(PAD_ID)
                     n_word = non_pad_mask.sum().item()
                     n_word_total += n_word
                     n_word_correct += n_correct
@@ -221,7 +222,7 @@ def main(args):
                             f'Valid Accuracy: {100 * valid_accu:.3f} %, Patience: {bad_loss_cnt}')
             else:
                 pass
-            model_p.train()
+            model.train()
             # Save widget each epoch
             save_dict = {
                 'task': args.task,

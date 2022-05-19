@@ -5,12 +5,10 @@
 @Time: 2019/8/6 9:13 AM
 @Description:
 """
-import pickle
-
 import torch
 from torch import nn
 
-from .module import Emb, Encoder, Decoder
+from .module import Emb, Encoder, Decoder, KnowledgeDecoder
 
 
 def get_non_pad_mask(seq, padding_id):
@@ -52,11 +50,14 @@ class Model(nn.Module):
                  de_n_layers, de_n_head, de_d_k, de_d_v, de_d_model, de_d_inner,
                  dropout_rate,
                  padding_id,
-                 tgt_emb_prj_weight_sharing=True):
+                 tgt_emb_prj_weight_sharing=True,
+                 use_knowledge=False,
+                 knowledge_data=None):
         super().__init__()
         self.task = task
         self.vocab_size = vocab_size
         self.padding_id = padding_id
+        self.use_knowledge = use_knowledge
         self.emb = Emb(max_text_len, image_size, vocab_size, embedding_size, padding_id)
         self.text_encoder = Encoder(text_n_layers, text_n_head, text_d_k, text_d_v,
                                     text_d_model, text_d_inner, dropout_rate)
@@ -67,21 +68,38 @@ class Model(nn.Module):
         if self.task == 'text':
             self.decoder = Decoder(de_n_layers, de_n_head, de_d_k, de_d_v,
                                    de_d_model, de_d_inner, dropout_rate)
-            self.tgt_word_prj = nn.Linear(de_d_model, vocab_size, bias=False)
+            self.tgt_word_prj_1 = nn.Linear(de_d_model, vocab_size, bias=False)
             if tgt_emb_prj_weight_sharing:
                 # Share the weight matrix between target word embedding & the final logit dense layer
-                self.tgt_word_prj.weight = self.emb.tgt_token_emb.weight
+                self.tgt_word_prj_1.weight = self.emb.tgt_token_emb.weight
                 self.x_logit_scale = (de_d_model ** -0.5)
             else:
-                nn.init.xavier_normal_(self.tgt_word_prj.weight)
+                nn.init.xavier_normal_(self.tgt_word_prj_1.weight)
                 self.x_logit_scale = 1.
-        # else:
-        #     self.image_similarity_encoder = ImageEncoder(self.image_in_size, self.context_hidden_size)
+            if use_knowledge:
+                self.knowledge = self.emb.tgt_token_emb(knowledge_data)
+                self.knowledge_decoder = KnowledgeDecoder(de_n_layers, de_n_head, de_d_k, de_d_v,
+                                                          de_d_model, de_d_inner, dropout_rate)
+                self.tgt_word_prj_2 = nn.Linear(de_d_model, vocab_size, bias=False)
+                if tgt_emb_prj_weight_sharing:
+                    # Share the weight matrix between target word embedding & the final logit dense layer
+                    self.tgt_word_prj_2.weight = self.emb.tgt_token_emb.weight
+                else:
+                    nn.init.xavier_normal_(self.tgt_word_prj_2.weight)
 
     def forward(self, context, query):
         if self.task == 'text':
             context_embs, context_seq = self.context_encode(context)
-            return self.text_decode(query, context_embs, context_seq)
+            output_1 = self.text_decode(query, context_embs, context_seq)
+            seq_logit_1 = self.tgt_word_prj_1(output_1) * self.x_logit_scale
+            seq_logit_1 = seq_logit_1.view(-1, seq_logit_1.size(2))
+            if self.use_knowledge:
+                output_2 = self.text_decode(query, context_embs, context_seq)
+                seq_logit_2 = self.tgt_word_prj_2(output_2) * self.x_logit_scale
+                seq_logit_2 = seq_logit_2.view(-1, seq_logit_2.size(2))
+                return seq_logit_1, seq_logit_2
+            else:
+                return seq_logit_1
 
     def context_encode(self, context):
         text_input, text_pos, text_turn, text_speaker, image_input, image_pos, image_turn, image_speaker = context
@@ -120,44 +138,28 @@ class Model(nn.Module):
         dec_enc_attn_mask = get_attn_key_pad_mask(seq_k=context_seq, seq_q=query_input, padding_id=self.padding_id)
         dec_output, = self.decoder(context_embs, query_embs, non_pad_mask, slf_attn_mask, dec_enc_attn_mask)
         # dec_output = (bs, query_len, embedding_size)
-        seq_logit = self.tgt_word_prj(dec_output) * self.x_logit_scale
+        # seq_logit = self.tgt_word_prj_1(dec_output) * self.x_logit_scale
         # seq_logit = (bs, query_len, vocab_size)
-        return seq_logit.view(-1, seq_logit.size(2))
+        return dec_output
+
+    def knowledge_text_decode(self, query, context_embs, context_seq):
+        query_input, query_pos = query
+        query_embs = self.emb.tgt_token_emb(query_input) + self.emb.position_enc(query_pos)
+        # query_embs = (bs, text_len, embedding_size)
+        # -- query transformer decoder
+        non_pad_mask = get_non_pad_mask(query_input, self.padding_id)
+        slf_attn_mask_subseq = get_subsequent_mask(query_input)
+        slf_attn_mask_keypad = get_attn_key_pad_mask(seq_k=query_input, seq_q=query_input,
+                                                     padding_id=self.padding_id)
+        slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
+        dec_enc_attn_mask = get_attn_key_pad_mask(seq_k=context_seq, seq_q=query_input, padding_id=self.padding_id)
+        dec_output, = self.knowledge_decoder(context_embs, query_embs, self.knowledge,
+                                             non_pad_mask, slf_attn_mask, dec_enc_attn_mask)
+        # dec_output = (bs, query_len, embedding_size)
+        # seq_logit = self.tgt_word_prj_2(dec_output) * self.x_logit_scale
+        # seq_logit = (bs, query_len, vocab_size)
+        return dec_output
 
 
 if __name__ == '__main__':
     pass
-    # vocab = pickle.load(open('dataset/transformer/v2/c2/vocab.pkl', 'rb'))
-    # widget = Model(task='text',
-    #               vocab_size=len(vocab),
-    #               max_text_len=20,
-    #               image_size=4096,
-    #               embedding_size=512,
-    #               text_n_layers=6, text_n_head=8, text_d_k=64, text_d_v=64, text_d_model=512, text_d_inner=2048,
-    #               co_n_layers=6, co_n_head=8, co_d_k=64, co_d_v=64, co_d_model=512, co_d_inner=2048,
-    #               de_n_layers=6, de_n_head=8, de_d_k=64, de_d_v=64, de_d_model=512, de_d_inner=2048,
-    #               dropout_rate=0.1,
-    #               padding_id=0)
-    # # context_size = 2
-    # text_input = torch.tensor([[1, 2, 3, 4, 5, 0, 0, 1, 2, 3, 0, 0, 0, 0],
-    #                            [1, 2, 3, 4, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0]])
-    # text_pos = torch.tensor([[1, 2, 3, 4, 5, 0, 0, 1, 2, 3, 0, 0, 0, 0],
-    #                          [1, 2, 3, 4, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0]])
-    # text_turn = torch.tensor([[6, 6, 6, 6, 6, 0, 0, 7, 7, 7, 0, 0, 0, 0],
-    #                           [6, 6, 6, 6, 0, 0, 0, 7, 7, 0, 0, 0, 0, 0]])
-    # text_speaker = torch.tensor([[8, 8, 8, 8, 8, 0, 0, 9, 9, 9, 0, 0, 0, 0],
-    #                              [8, 8, 8, 8, 0, 0, 0, 9, 9, 0, 0, 0, 0, 0]])
-    # image_input = torch.rand(size=(2, 10, 4096))
-    # image_seq = torch.tensor([[1, 1, 0, 0, 0, 1, 1, 1, 0, 0],
-    #                           [1, 1, 1, 1, 1, 1, 0, 0, 0, 0]])
-    # image_turn = torch.tensor([[6, 6, 0, 0, 0, 7, 7, 7, 0, 0],
-    #                            [6, 6, 6, 6, 6, 7, 0, 0, 0, 0]])
-    # image_speaker = torch.tensor([[8, 8, 0, 0, 0, 9, 9, 9, 0, 0],
-    #                               [8, 8, 8, 8, 8, 9, 0, 0, 0, 0]])
-    # query_input = torch.tensor([[1, 2, 3, 4, 0, 0],
-    #                             [1, 5, 2, 0, 0, 0]])
-    # query_pos = torch.tensor([[1, 2, 3, 4, 0, 0],
-    #                           [1, 2, 3, 0, 0, 0]])
-    # widget(text_input, text_pos, text_turn, text_speaker,
-    #       image_input, image_seq, image_turn, image_speaker,
-    #       query_input, query_pos)

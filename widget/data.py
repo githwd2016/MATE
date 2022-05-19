@@ -219,3 +219,8 @@ class DataSource(Dataset):
                 vector = [0.] * self.config['model']['image_size']
             ret.append(vector)
         return ret
+
+    def encode_knowledge_pair(self, path):
+        with open(path, 'r', encoding='utf8') as file:
+            knowledge_pair = json.load(file)
+

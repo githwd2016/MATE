@@ -123,6 +123,38 @@ class Decoder(nn.Module):
         return dec_output,
 
 
+class KnowledgeDecoder(nn.Module):
+    """ A decoder widget with domain knowledge. """
+
+    def __init__(
+            self,
+            n_layers, n_head, d_k, d_v,
+            d_model, d_inner, dropout=0.1):
+
+        super().__init__()
+        self.layer_stack = nn.ModuleList([
+            KnowledgeDecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(n_layers)])
+
+    def forward(self, src_seq, tgt_seq, knowledge, non_pad_mask, slf_attn_mask, dec_enc_attn_mask, return_attns=False):
+        dec_slf_attn_list, dec_enc_attn_list = [], []
+        dec_output = tgt_seq
+        for dec_layer in self.layer_stack:
+            dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                dec_output, src_seq, knowledge,
+                non_pad_mask=non_pad_mask,
+                slf_attn_mask=slf_attn_mask,
+                dec_enc_attn_mask=dec_enc_attn_mask)
+
+            if return_attns:
+                dec_slf_attn_list += [dec_slf_attn]
+                dec_enc_attn_list += [dec_enc_attn]
+
+        if return_attns:
+            return dec_output, dec_slf_attn_list, dec_enc_attn_list
+        return dec_output,
+
+
 class SingleEncoderLayer(nn.Module):
     """ Compose with two layers """
 
@@ -153,6 +185,33 @@ class SingleDecoderLayer(nn.Module):
     def forward(self, dec_input, enc_output, non_pad_mask=None, slf_attn_mask=None, dec_enc_attn_mask=None):
         dec_output, dec_slf_attn = self.slf_attn(
             dec_input, dec_input, dec_input, mask=slf_attn_mask)
+        dec_output *= non_pad_mask
+
+        dec_output, dec_enc_attn = self.enc_attn(
+            dec_output, enc_output, enc_output, mask=dec_enc_attn_mask)
+        dec_output *= non_pad_mask
+
+        dec_output = self.pos_ffn(dec_output)
+        dec_output *= non_pad_mask
+
+        return dec_output, dec_slf_attn, dec_enc_attn
+
+
+class KnowledgeDecoderLayer(nn.Module):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1):
+        super(KnowledgeDecoderLayer, self).__init__()
+        self.slf_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout)
+        self.knowledge_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout)
+        self.enc_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout)
+        self.pos_ffn = PositionWiseFeedForward(d_model, d_inner, dropout=dropout)
+
+    def forward(self, dec_input, enc_output, knowledge, non_pad_mask=None, slf_attn_mask=None, dec_enc_attn_mask=None):
+        dec_output, dec_slf_attn = self.slf_attn(
+            dec_input, dec_input, dec_input, mask=slf_attn_mask)
+        dec_output *= non_pad_mask
+
+        dec_output, dec_knowledge_attn = self.knowledge_attn(
+            dec_output, knowledge, knowledge)
         dec_output *= non_pad_mask
 
         dec_output, dec_enc_attn = self.enc_attn(

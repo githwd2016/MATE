@@ -9,7 +9,6 @@ import argparse
 import json
 import logging
 import os
-import time
 
 import torch
 from torch import nn, optim
@@ -97,6 +96,7 @@ def main(args):
                               batch_size=args.batch_size,
                               shuffle=False,
                               num_workers=3)
+    knowledge_data = train_dataset.encode_knowledge_pair(config['data']['knowledge_path'])
     vocab_size = len(train_dataset.vocab)
     logger.info(f"Total batches={len(train_dataset) // args.batch_size}")
     # Define widget
@@ -125,7 +125,10 @@ def main(args):
                   de_d_inner=config['model']['de_d_inner'],
                   dropout_rate=config['model']['dropout_rate'],
                   padding_id=PAD_ID,
-                  tgt_emb_prj_weight_sharing=True)
+                  tgt_emb_prj_weight_sharing=True,
+                  use_knowledge=config['model']['use_knowledge'],
+                  knowledge_data=knowledge_data
+                  )
     model.to(device)
     # model = nn.DataParallel(model)
     # logger.info(model)
@@ -134,11 +137,11 @@ def main(args):
                            lr=config['training']['lr'],
                            weight_decay=config['training']['lr_decay'])
     # Define learning rate scheduler
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
-                                               factor=0.5, patience=1,
-                                               threshold=0.1, threshold_mode='rel',
-                                               cooldown=0, min_lr=1e-8,
-                                               verbose=True)
+    # scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
+    #                                            factor=0.5, patience=1,
+    #                                            threshold=0.1, threshold_mode='rel',
+    #                                            cooldown=0, min_lr=1e-8,
+    #                                            verbose=True)
     # optimizer = ScheduledOptim(
     #     optim.Adam(
     #         filter(lambda x: x.requires_grad, widget.parameters()),
@@ -149,11 +152,10 @@ def main(args):
     min_val_loss = None
     bad_loss_cnt = 0
     for epoch in range(config['training']['num_epochs']):
-        total_loss = 0
-        valid_loss = 0
-        n_word_total = 0
-        n_word_correct = 0
-        scheduler.step(valid_loss)
+        total_losses = [0, 0]
+        n_word_total_list = [0, 0]
+        n_word_correct_list = [0, 0]
+        # scheduler.step(sum(valid_losses))
         for train_batch in train_loader:
             total_batch += 1
             if args.task == 'text':
@@ -162,40 +164,45 @@ def main(args):
                 query_input, query_pos = map(lambda x: x.to(device), train_batch)
                 gold = query_input[:, 1:]
                 optimizer.zero_grad()
-                dec_output_prob = model((text_input, text_pos, text_turn, text_speaker,
-                                         image_input, image_pos, image_turn, image_speaker),
-                                        (query_input[:, :-1], query_pos[:, :-1]))
-                loss, n_correct = cal_performance(dec_output_prob, gold, PAD_ID,
-                                                  smoothing=label_smoothing)
-                batch_loss = loss.item()
-                total_loss += batch_loss
-                non_pad_mask = gold.ne(PAD_ID)
-                n_word = non_pad_mask.sum().item()
-                n_word_total += n_word
-                n_word_correct += n_correct
-                batch_loss /= n_word
-                batch_acc = n_correct / n_word
-                if total_batch % config['training']['log_batch'] == 0 or total_batch < config['training']['log_batch']:
-                    logger.info(f'Epoch [{epoch + 1}], Batch [{total_batch}], '
-                                 f'Loss: {batch_loss:.6}, Perplexity: {np.exp(batch_loss):.5f}, '
-                                 f'Accuracy: {100 * batch_acc:.3f} %')
+                dec_output_probs = model((text_input, text_pos, text_turn, text_speaker,
+                                          image_input, image_pos, image_turn, image_speaker),
+                                         (query_input[:, :-1], query_pos[:, :-1]))
+                backward_loss = []
+                for idx, dec_output_prob in enumerate(dec_output_probs):
+                    loss, n_correct = cal_performance(dec_output_prob, gold, PAD_ID,
+                                                      smoothing=label_smoothing)
+                    backward_loss.append(loss)
+                    batch_loss = loss.item()
+                    total_losses[idx] += batch_loss
+                    non_pad_mask = gold.ne(PAD_ID)
+                    n_word = non_pad_mask.sum().item()
+                    n_word_total_list[idx] += n_word
+                    n_word_correct_list[idx] += n_correct
+                    if total_batch % config['training']['log_batch'] == 0 or total_batch < config['training'][
+                        'log_batch']:
+                        logger.info(f'Epoch [{epoch + 1}], Batch [{total_batch}], '
+                                    f'Loss {idx + 1}: {batch_loss / n_word:.6}, '
+                                    f'Accuracy {idx + 1}: {100 * n_correct / n_word:.3f} %')
+                backward_loss = sum(backward_loss)
+                backward_loss.backward()
+                optimizer.step()
+                # optimizer.step_and_update_lr()
+                # Gradient clipping to avoid exploding gradients
+                nn.utils.clip_grad_norm_(model.parameters(), config['training']['max_gradient_norm'])
             else:
                 pass
-            loss.backward()
-            optimizer.step()
-            # optimizer.step_and_update_lr()
-            # Gradient clipping to avoid exploding gradients
-            nn.utils.clip_grad_norm_(model.parameters(), config['training']['max_gradient_norm'])
         if args.task == 'text':
-            train_loss = total_loss / n_word_total
-            train_accu = n_word_correct / n_word_total
-            logger.info(f'Epoch [{epoch + 1}] '
-                        f'Train Loss: {train_loss:.6}, Train Perplexity: {np.exp(train_loss):.5f}, '
-                        f'Train Accuracy: {100 * train_accu:.3f} %')
+            for idx, (total_loss, n_word_total, n_word_correct) in enumerate(
+                    zip(total_losses, n_word_total_list, n_word_correct_list)):
+                train_loss = total_loss / n_word_total
+                train_accu = n_word_correct / n_word_total
+                logger.info(f'Epoch [{epoch + 1}], '
+                            f'Train Loss {idx + 1}: {train_loss:.6}, '
+                            f'Train Accuracy {idx + 1}: {100 * train_accu:.3f} %')
         # Evaluate
-        total_loss = 0
-        n_word_total = 0
-        n_word_correct = 0
+        valid_losses = [0, 0]
+        n_word_total_list = [0, 0]
+        n_word_correct_list = [0, 0]
         if epoch % config['training']['evaluate_epoch'] == 0:
             model.eval()
             if args.task == 'text':
@@ -204,48 +211,48 @@ def main(args):
                     image_input, image_pos, image_turn, image_speaker, \
                     query_input, query_pos = map(lambda x: x.to(device), valid_batch)
                     gold = query_input[:, 1:]
-                    optimizer.zero_grad()
-                    dec_output_prob = model((text_input, text_pos, text_turn, text_speaker,
-                                             image_input, image_pos, image_turn, image_speaker),
-                                            (query_input[:, :-1], query_pos[:, :-1]))
-                    loss_val, n_correct = cal_performance(dec_output_prob, gold, PAD_ID,
-                                                          smoothing=label_smoothing)
-                    total_loss += loss_val.item()
-                    non_pad_mask = gold.ne(PAD_ID)
-                    n_word = non_pad_mask.sum().item()
-                    n_word_total += n_word
-                    n_word_correct += n_correct
-                valid_loss = total_loss / n_word_total
-                valid_accu = n_word_correct / n_word_total
-                logger.info(f'Epoch [{epoch + 1}] '
-                            f'Valid Loss: {valid_loss:.6}, Valid Perplexity: {np.exp(valid_loss):.4}, '
-                            f'Valid Accuracy: {100 * valid_accu:.3f} %, Patience: {bad_loss_cnt}')
+                    dec_output_probs = model((text_input, text_pos, text_turn, text_speaker,
+                                              image_input, image_pos, image_turn, image_speaker),
+                                             (query_input[:, :-1], query_pos[:, :-1]))
+                    for idx, dec_output_prob in enumerate(dec_output_probs):
+                        loss_val, n_correct = cal_performance(dec_output_prob, gold, PAD_ID,
+                                                              smoothing=label_smoothing)
+                        valid_losses[idx] += loss_val.item()
+                        non_pad_mask = gold.ne(PAD_ID)
+                        n_word = non_pad_mask.sum().item()
+                        n_word_total_list[idx] += n_word
+                        n_word_correct_list[idx] += n_correct
+                for idx, (valid_loss, n_word_total, n_word_correct) in enumerate(
+                        zip(valid_losses, n_word_total_list, n_word_correct_list)):
+                    logger.info(f'Epoch [{epoch + 1}] '
+                                f'Valid Loss {idx + 1}: {valid_loss / n_word_total:.6}, '
+                                f'Valid Accuracy {idx + 1}: {100 * n_word_correct / n_word_total:.3f} %, '
+                                f'Patience: {bad_loss_cnt}')
+                valid_loss = sum(valid_losses)
+                model.train()
+                # Save widget each epoch
+                save_dict = {
+                    'task': args.task,
+                    'epoch': epoch,
+                    'iteration': total_batch,
+                    'valid_loss': valid_loss,
+                    'widget': model.state_dict(),
+                    'optimizer': optimizer.state_dict()
+                }
+                torch.save(save_dict,
+                           os.path.join(args.model_path, f'{args.task}_model_{epoch + 1}.pth'))
+                if min_val_loss is None or valid_loss < min_val_loss:
+                    min_val_loss = valid_loss
+                    bad_loss_cnt = 0
+                    # Save the best widget
+                    torch.save(save_dict,
+                               os.path.join(args.model_path, f'best_{args.task}_model.pth'))
+                else:
+                    bad_loss_cnt += 1
+                    if bad_loss_cnt >= config['training']['patience']:
+                        return 0
             else:
                 pass
-            model.train()
-            # Save widget each epoch
-            save_dict = {
-                'task': args.task,
-                'epoch': epoch,
-                'iteration': total_batch,
-                'valid_loss': valid_loss,
-                'widget': model.state_dict(),
-                'optimizer': optimizer.state_dict()
-            }
-            torch.save(save_dict,
-                       os.path.join(args.model_path, f'{args.task}_model_{epoch + 1}.pth'))
-            if min_val_loss is None or valid_loss < min_val_loss:
-                min_val_loss = valid_loss
-                bad_loss_cnt = 0
-                # Save the best widget
-                torch.save(save_dict,
-                           os.path.join(args.model_path, f'best_{args.task}_model.pth'))
-            else:
-                bad_loss_cnt += 1
-                if bad_loss_cnt >= config['training']['patience']:
-                    break
-        if bad_loss_cnt >= config['training']['patience']:
-            break
     return 0
 
 

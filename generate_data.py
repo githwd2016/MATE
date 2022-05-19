@@ -26,6 +26,24 @@ def norm_sentence(sentence):
 
 
 def main(args):
+    # process knowledge data
+    knowledge_pairs = []
+    with open(os.path.join(args.input_dir, 'styletips_synset.txt')) as file:
+        for line in file:
+            products = [None] * 2
+            products[0], products[1], score = map(lambda x: x.strip(), line.split(','))
+            products = list(map(lambda x: x.lower(), products))
+            knowledge_pairs.append(products)
+    with open(os.path.join(args.input_dir, 'celebrity_distribution.json')) as file:
+        celebrity_json = json.load(file)
+    for celebrity, products in celebrity_json.items():
+        celebrity = celebrity.lower()
+        for product in products.keys():
+            product = product.lower()
+            knowledge_pairs.append([celebrity, product])
+    with open(os.path.join(args.out_dir, 'knowledge.json'), 'w', encoding='utf8') as file:
+        json.dump(knowledge_pairs, file, indent=2, ensure_ascii=False)
+    # process dialog data
     versions = ['v1', 'v2']
     splits = ['train', 'valid', 'test']
     for version in versions:

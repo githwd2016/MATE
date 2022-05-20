@@ -95,10 +95,7 @@ class Model(nn.Module):
             seq_logit_1 = self.tgt_word_prj_1(output_1) * self.x_logit_scale
             seq_logit_1 = seq_logit_1.view(-1, seq_logit_1.size(2))
             if self.use_knowledge:
-                knowledge = self.emb.tgt_token_emb(self.knowledge_data)
-                knowledge = self.knowledge_linear(torch.reshape(knowledge, [-1, 2 * knowledge.shape[2]]))
-                knowledge = knowledge.unsqueeze(0).expand(context_embs.shape[0], knowledge.shape[0], knowledge.shape[1])
-                output_2 = self.knowledge_text_decode(query, context_embs, context_seq, knowledge)
+                output_2 = self.knowledge_text_decode(query, context_embs, context_seq)
                 seq_logit_2 = self.tgt_word_prj_2(output_2) * self.x_logit_scale
                 seq_logit_2 = seq_logit_2.view(-1, seq_logit_2.size(2))
                 return seq_logit_1, seq_logit_2
@@ -146,9 +143,12 @@ class Model(nn.Module):
         # seq_logit = (bs, query_len, vocab_size)
         return dec_output
 
-    def knowledge_text_decode(self, query, context_embs, context_seq, knowledge):
+    def knowledge_text_decode(self, query, context_embs, context_seq):
         query_input, query_pos = query
         query_embs = self.emb.tgt_token_emb(query_input) + self.emb.position_enc(query_pos)
+        knowledge = self.emb.tgt_token_emb(self.knowledge_data)
+        knowledge = self.knowledge_linear(torch.reshape(knowledge, [-1, 2 * knowledge.shape[2]]))
+        knowledge = knowledge.unsqueeze(0).expand(context_embs.shape[0], knowledge.shape[0], knowledge.shape[1])
         # query_embs = (bs, text_len, embedding_size)
         # -- query transformer decoder
         non_pad_mask = get_non_pad_mask(query_input, self.padding_id)

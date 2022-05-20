@@ -222,13 +222,16 @@ class DataSource(Dataset):
         return ret
 
     def encode_knowledge_pair(self, path):
-        with open(path, 'r', encoding='utf8') as file:
-            knowledge_pairs = json.load(file)
-        result = []
-        for knowledge_pair in knowledge_pairs:
-            result.append([
-                self.vocab.get(knowledge_pair[0], UNK_ID),
-                self.vocab.get(knowledge_pair[1], UNK_ID)
-            ])
-        return torch.tensor(result)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf8') as file:
+                knowledge_pairs = json.load(file)
+            result = []
+            for knowledge_pair in knowledge_pairs:
+                result.append([
+                    self.vocab.get(knowledge_pair[0], UNK_ID),
+                    self.vocab.get(knowledge_pair[1], UNK_ID)
+                ])
+            return torch.tensor(result)
+        else:
+            return None
 

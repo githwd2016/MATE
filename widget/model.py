@@ -77,7 +77,8 @@ class Model(nn.Module):
                 nn.init.xavier_normal_(self.tgt_word_prj_1.weight)
                 self.x_logit_scale = 1.
             if use_knowledge:
-                self.knowledge = self.emb.tgt_token_emb(knowledge_data)
+                self.knowledge_data = knowledge_data
+                self.knowledge_linear = nn.Linear(2 * embedding_size, embedding_size)
                 self.knowledge_decoder = KnowledgeDecoder(de_n_layers, de_n_head, de_d_k, de_d_v,
                                                           de_d_model, de_d_inner, dropout_rate)
                 self.tgt_word_prj_2 = nn.Linear(de_d_model, vocab_size, bias=False)
@@ -94,7 +95,10 @@ class Model(nn.Module):
             seq_logit_1 = self.tgt_word_prj_1(output_1) * self.x_logit_scale
             seq_logit_1 = seq_logit_1.view(-1, seq_logit_1.size(2))
             if self.use_knowledge:
-                output_2 = self.text_decode(query, context_embs, context_seq)
+                knowledge = self.emb.tgt_token_emb(self.knowledge_data)
+                knowledge = self.knowledge_linear(torch.reshape(knowledge, [-1, 2 * knowledge.shape[2]]))
+                knowledge = knowledge.unsqueeze(0).expand(context_embs.shape[0], knowledge.shape[0], knowledge.shape[1])
+                output_2 = self.knowledge_text_decode(query, context_embs, context_seq, knowledge)
                 seq_logit_2 = self.tgt_word_prj_2(output_2) * self.x_logit_scale
                 seq_logit_2 = seq_logit_2.view(-1, seq_logit_2.size(2))
                 return seq_logit_1, seq_logit_2
@@ -142,7 +146,7 @@ class Model(nn.Module):
         # seq_logit = (bs, query_len, vocab_size)
         return dec_output
 
-    def knowledge_text_decode(self, query, context_embs, context_seq):
+    def knowledge_text_decode(self, query, context_embs, context_seq, knowledge):
         query_input, query_pos = query
         query_embs = self.emb.tgt_token_emb(query_input) + self.emb.position_enc(query_pos)
         # query_embs = (bs, text_len, embedding_size)
@@ -153,7 +157,7 @@ class Model(nn.Module):
                                                      padding_id=self.padding_id)
         slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
         dec_enc_attn_mask = get_attn_key_pad_mask(seq_k=context_seq, seq_q=query_input, padding_id=self.padding_id)
-        dec_output, = self.knowledge_decoder(context_embs, query_embs, self.knowledge,
+        dec_output, = self.knowledge_decoder(context_embs, query_embs, knowledge,
                                              non_pad_mask, slf_attn_mask, dec_enc_attn_mask)
         # dec_output = (bs, query_len, embedding_size)
         # seq_logit = self.tgt_word_prj_2(dec_output) * self.x_logit_scale

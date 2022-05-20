@@ -96,7 +96,7 @@ def main(args):
                               batch_size=args.batch_size,
                               shuffle=False,
                               num_workers=3)
-    knowledge_data = train_dataset.encode_knowledge_pair(config['data']['knowledge_path'])
+    knowledge_data = train_dataset.encode_knowledge_pair(config['data']['knowledge_path']).to(device)
     vocab_size = len(train_dataset.vocab)
     logger.info(f"Total batches={len(train_dataset) // args.batch_size}")
     # Define widget

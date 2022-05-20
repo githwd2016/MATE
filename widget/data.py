@@ -13,6 +13,7 @@ from collections import Counter
 import pickle as pkl
 
 import numpy as np
+import torch
 from nltk import word_tokenize
 from torch.utils.data import Dataset
 from annoy import AnnoyIndex
@@ -74,7 +75,7 @@ class DataSource(Dataset):
         type_file = os.path.join(work_path, f'dialog_type.txt')
         self.vocab_file = os.path.join(work_path, f'vocab.pkl')
         if not isfile(self.vocab_file) or not isfile(item_file):
-            print('reading dialog pkl...')
+            print('loading dialog pkl...')
             self.dialogs = pkl.load(open(self.source_file, 'rb'))
         self.image_pos = ['1st', '2nd', '3rd', '4th', '5th', '6th',
                           '7th', '8th', '9th', '10th', '11th', '12th'][:self.config['data']['image_length']]
@@ -91,7 +92,7 @@ class DataSource(Dataset):
                 save_to_txt(gt_texts, gt_file)
                 save_to_txt(dialog_types, type_file)
         else:
-            print(f'reading {task} {mode} item pkl...')
+            print(f'loading {task} {mode} item pkl...')
             self.items = pkl.load(open(item_file, 'rb'))
             print(f'{task} {mode} item pkl read complete')
 
@@ -128,9 +129,9 @@ class DataSource(Dataset):
             else:
                 raise Exception('Vocabulary is not exist!')
         else:
-            print('reading vocab pkl...')
+            print('loading vocab pkl...')
             vocab = pkl.load(open(self.vocab_file, 'rb'))
-            print('vocab pkl read complete')
+            print('vocab pkl load complete')
         return vocab
 
     def get_items_from_dialogs(self):
@@ -222,5 +223,12 @@ class DataSource(Dataset):
 
     def encode_knowledge_pair(self, path):
         with open(path, 'r', encoding='utf8') as file:
-            knowledge_pair = json.load(file)
+            knowledge_pairs = json.load(file)
+        result = []
+        for knowledge_pair in knowledge_pairs:
+            result.append([
+                self.vocab.get(knowledge_pair[0], UNK_ID),
+                self.vocab.get(knowledge_pair[1], UNK_ID)
+            ])
+        return torch.tensor(result)
 
